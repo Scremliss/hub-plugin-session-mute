@@ -1,6 +1,7 @@
-// Личный плагин: мьют сессий, как каналы в Telegram. У заглушённой нет синей точки «новое» (hub.addUnread), нет догадки
-// «ответ?» и места в «Новом»; вопросы и запросы разрешения (status waiting) не глушатся — они не отсюда.
-// Колокольчик — у строки в списке (при наведении; заглушённой — всегда) и в шапке открытой сессии. Список — в браузере.
+// Muting sessions, like channels in Telegram. A muted session has no blue "new" dot (hub.addUnread), no "reply?" guess
+// and no place in "New"; questions and permission requests (status waiting) are not muted — they do not come from here.
+// The bell is at the row in the list (on hover; for a muted one — always) and in the open session's header. The list is
+// kept in the browser.
 const KEY = "hub.mutedSessions";
 const NS = "http://www.w3.org/2000/svg";
 const BELL = "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z";
@@ -40,7 +41,7 @@ export default function register(hub) {
       svg.append(document.createElementNS(NS, "path"));
       b.append(svg);
       const flip = (e) => {
-        e.stopPropagation();   // не открывать сессию
+        e.stopPropagation();   // do not open the session
         e.preventDefault();
         muted.has(b.dataset.s) ? muted.delete(b.dataset.s) : muted.add(b.dataset.s);
         save();
@@ -60,11 +61,11 @@ export default function register(hub) {
 
   hub.addSlot("sidebar.session", { id: "mute", render: (root, snap, ctx) => draw(root, ctx.session.name) });
   hub.addSlot("session.header", { id: "mute", render: (root, snap, ctx) => draw(root, ctx.session.name) });
-  // «новое» и «ответ?» заглушённой — нет; остальным — как у ядра (null)
+  // a muted session gets no "new" and no "reply?"; the others — as the core says (null)
   hub.addUnread((s) => {
     if (!muted.has(s.name)) return null;
     s.attention = null;
     return false;
   });
-  addEventListener("storage", (e) => { if (e.key === KEY) { muted = load(); hub.redraw(); } });   // другая вкладка
+  addEventListener("storage", (e) => { if (e.key === KEY) { muted = load(); hub.redraw(); } });   // another tab
 }
