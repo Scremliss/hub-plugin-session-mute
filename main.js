@@ -1,6 +1,7 @@
 // Личный плагин: мьют сессий, как каналы в Telegram. У заглушённой нет синей точки «новое» (hub.addUnread), нет догадки
 // «ответ?» и места в «Новом»; вопросы и запросы разрешения (status waiting) не глушатся — они не отсюда.
-// Колокольчик — у строки в списке (при наведении; заглушённой — всегда) и в шапке открытой сессии. Список — в браузере.
+// Группа «Внешние хабы» рисуется ядром без слотов: колокольчик и скрытие синей точки (и точки свёрнутой группы) —
+// через наблюдатель за списком, имя в том же списке с префиксом «:hub:». Колокольчик — у строки в списке (при наведении; заглушённой — всегда) и в шапке открытой сессии. Список — в браузере.
 const KEY = "hub.mutedSessions";
 const NS = "http://www.w3.org/2000/svg";
 const BELL = "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z";
@@ -66,5 +67,34 @@ export default function register(hub) {
     s.attention = null;
     return false;
   });
+
+  // --- «Внешние хабы»: строки li[data-hub] в группе .bus-group ---
+  const hubKey = (n) => ":hub:" + n;
+  const dressHubs = () => {
+    for (const li of document.querySelectorAll(".bus-group li[data-hub]")) {
+      const a = li.querySelector(".bus-srow");
+      if (!a) continue;
+      let slot = a.querySelector(":scope > .mute-slot");
+      if (!slot) { slot = document.createElement("span"); slot.className = "mute-slot"; slot.style.display = "contents"; a.append(slot); }
+      draw(slot, hubKey(li.dataset.hub));
+      a.classList.toggle("hub-muted", muted.has(hubKey(li.dataset.hub)));
+    }
+    // свёрнутая группа: обычная точка «новое» скрыта, если заглушены все хабы (точка «ждёт тебя» остаётся)
+    const all = (hub.snapshot?.()?.bus?.contacts || []);
+    const quiet = all.length > 0 && all.every((c) => muted.has(hubKey(c.name)));
+    for (const d of document.querySelectorAll(".bus-group .fdot:not(.wants)")) d.hidden = quiet;
+  };
+  st.textContent += `
+html .srow.bus-srow.hub-muted > .dot, .bus-srow.hub-muted .dot { display: none !important; }
+.bus-srow .mute-btn { align-self: center; margin-top: 0; opacity: 0; }
+.bus-srow:hover .mute-btn, .bus-srow:focus-within .mute-btn, .bus-srow .mute-btn.on { opacity: .75; }
+.bus-srow.hub-muted .nm { color: var(--muted-foreground); }`;
+  let pending = 0;
+  new MutationObserver(() => {
+    if (pending) return;
+    pending = requestAnimationFrame(() => { pending = 0; dressHubs(); });
+  }).observe(document.body, { childList: true, subtree: true });
+  dressHubs();
+
   addEventListener("storage", (e) => { if (e.key === KEY) { muted = load(); hub.redraw(); } });   // другая вкладка
 }
